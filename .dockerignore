@@ -1,0 +1,13 @@
+.git
+.gitignore
+.github
+deepaicode2api
+deepaicode2api.exe
+register.exe
+data
+exports
+result
+test-*
+*.log
+*.har
+.env

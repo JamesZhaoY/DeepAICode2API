@@ -1,0 +1,22 @@
+# 统一换行：仓库内一律 LF，检出时按平台自动转换。
+* text=auto eol=lf
+
+# Go 源码强制 LF（go fmt 会在 CRLF 下产生噪音 diff）。
+*.go    text eol=lf diff=golang
+*.mod   text eol=lf
+*.sum   text eol=lf
+
+# 配置 / 文档
+*.md      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.json    text eol=lf
+.env.example text eol=lf
+
+# 构建产物与逆向资料不参与 diff。
+*.exe   binary
+*.har   binary
+*.png   binary
+
+# 运行期数据 / 台账不做文本 diff（含密钥，仅本地存在）。
+*.jsonl -diff

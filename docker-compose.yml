@@ -1,0 +1,21 @@
+---
+services:
+  deepaicode2api:
+    build: .
+    container_name: deepaicode2api
+    ports:
+      - "127.0.0.1:10087:10087"
+    environment:
+      DEEPAI2API_HOST: 0.0.0.0
+      DEEPAI2API_PORT: "10087"
+      DEEPAI2API_DATA_PATH: /data/deepaicode2api-data.json
+      # 直接指定上游账号（也可在控制台导入 / 手工添加）
+      DEEPAI_API_KEY: ${DEEPAI_API_KEY:-}
+      # 复用宿主机每日免费额度：填桌面端所在机器的原始 UUID
+      DEEPAI_MACHINE_ID: ${DEEPAI_MACHINE_ID:-}
+      # 容器内必须设置管理密码，否则管理接口只允许回环访问
+      DEEPAI2API_ADMIN_PASSWORD: ${DEEPAI2API_ADMIN_PASSWORD:?Set the admin password in .env}
+      DEEPAI2API_MASTER_KEY: ${DEEPAI2API_MASTER_KEY:?Set the encryption key in .env}
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

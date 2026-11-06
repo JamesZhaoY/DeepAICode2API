@@ -1,0 +1,60 @@
+# 构建产物
+/deepaicode2api
+/deepaicode2api.exe
+/register
+/register.exe
+/bin/
+/dist/
+*.exe
+*.out
+*.test
+coverage.out
+
+# 临时文件
+*.tmp
+*.swp
+*~
+
+# 运行期状态（含上游 API Key / 密码，务必不要入库）
+/deepaicode2api-data.json
+/deepaicode2api-data.json.*
+/data/
+/gw.log
+/*.log
+/*.meta
+
+# 注册台账 / 交付物（含 API Key 与密码）
+/exports/
+/result/
+/test-*.json
+/*.jsonl
+/*.har
+/test-*.jsonl
+/test-*.log
+/regtest.log
+
+# 本地测试 / 逆向产物
+/.console-check.js
+/.recon/
+/deepai.org.har
+
+# 编辑器 / 系统
+.DS_Store
+.idea/
+.vscode/
+
+# 本地凭据 / 代理（绝不入库）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+id_rsa*
+credentials*.json
+
+# 导入的邮箱清单与分配状态（含刷新令牌 / 账号信息）
+/graph-mail-accounts.txt
+/graph-mail-accounts.txt.state.json
+/hotmail*.txt
+*.state.json
