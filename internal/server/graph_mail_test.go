@@ -33,6 +33,24 @@ func TestGraphMailImport(t *testing.T) {
 	if (*get())["count"] != float64(2) {
 		t.Fatal("expected two accounts")
 	}
+	r = do(t, s, http.MethodPost, "/admin/api/register/graph-mail", "", `{"content":"A@HOTMAIL.COM----newpassword----client----newrefresh\nc@hotmail.com----password----client----refresh"}`)
+	if r.Code != 200 {
+		t.Fatalf("merge failed: %s", r.Body.String())
+	}
+	var merged map[string]any
+	if err := json.Unmarshal(r.Body.Bytes(), &merged); err != nil {
+		t.Fatal(err)
+	}
+	if merged["count"] != float64(3) || merged["added"] != float64(1) || merged["updated"] != float64(1) {
+		t.Fatalf("unexpected counts: %v", merged)
+	}
+	contents, err := os.ReadFile(s.graphMailPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(contents), "newrefresh") || !strings.Contains(string(contents), "b@hotmail.com") {
+		t.Fatal("merge failed to preserve or update entries")
+	}
 	info, err := os.Stat(s.graphMailPath())
 	if err != nil || info.Mode().Perm() != 0600 {
 		t.Fatalf("permissions: %v %v", info, err)
@@ -41,8 +59,8 @@ func TestGraphMailImport(t *testing.T) {
 	if r.Code != 400 {
 		t.Fatal("expected validation error")
 	}
-	if (*get())["count"] != float64(2) {
-		t.Fatal("invalid import replaced file")
+	if (*get())["count"] != float64(3) {
+		t.Fatal("invalid import changed file")
 	}
 }
 
@@ -54,5 +72,13 @@ func TestRegisterRejectsUnsupportedBackend(t *testing.T) {
 		if r.Code != http.StatusBadRequest {
 			t.Fatalf("backend %s: expected 400, got %d", backend, r.Code)
 		}
+	}
+}
+
+func TestRegisterCountLimit(t *testing.T) {
+	s := newEmptyServer(t)
+	r := do(t, s, http.MethodPost, "/admin/api/register", "", `{"count":1001}`)
+	if r.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", r.Code)
 	}
 }

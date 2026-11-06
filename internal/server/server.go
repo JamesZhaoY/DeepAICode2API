@@ -29,9 +29,10 @@ type Server struct {
 	// Registers 保存批量注册任务（内存态）。
 	Registers *registerJobs
 
-	refreshMu    sync.Mutex
-	proxyMu      sync.Mutex
-	proxyClients map[string]*deepai.Client
+	graphImportMu sync.Mutex
+	refreshMu     sync.Mutex
+	proxyMu       sync.Mutex
+	proxyClients  map[string]*deepai.Client
 
 	// quotaReprobeDelays 是入池后 0 额度的复探退避序列（测试可注入短值）。
 	quotaReprobeDelays []time.Duration

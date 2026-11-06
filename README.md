@@ -48,7 +48,7 @@ go build -o bin/deepaicode2api .
 邮箱地址----邮箱密码----client_id----refresh_token
 ```
 
-Graph 使用 `client_id` 和 `refresh_token` 授权；令牌需要具有 Microsoft Graph 委托 `Mail.Read` 和 `offline_access` 权限。文件导入后，在页面中设置注册数量、并发数，并可在高级设置填写代理池。
+Graph 使用 `client_id` 和 `refresh_token` 授权；令牌需要具有 Microsoft Graph 委托 `Mail.Read` 和 `offline_access` 权限。多次导入会按邮箱地址合并；重复地址使用最新导入的凭据，已有邮箱状态保留。文件导入后，可在页面设置注册数量（最多 1,000）、并发数（最多 10）和代理池。
 
 邮箱状态分为「可用」「已注册」和「待确认」。注册请求发生网络中断等无法确定结果的情况时，邮箱会标为待确认，避免自动重复注册。邮箱分配状态会持久保存，重新导入时保留原有状态。不同服务实例的状态不会自动同步，不应让多个实例同时使用同一份邮箱池。
 

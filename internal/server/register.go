@@ -230,15 +230,15 @@ func (s *Server) startRegisterJob(w http.ResponseWriter, r *http.Request) {
 	if body.Count <= 0 {
 		body.Count = 1
 	}
-	if body.Count > 50 {
-		writeErr(w, http.StatusBadRequest, "单次最多注册 50 个账号", "invalid_request_error")
+	if body.Count > 1000 {
+		writeErr(w, http.StatusBadRequest, "单次最多注册 1000 个账号", "invalid_request_error")
 		return
 	}
 	if body.Concurrency <= 0 {
 		body.Concurrency = 1
 	}
-	if body.Concurrency > 5 {
-		body.Concurrency = 5
+	if body.Concurrency > 10 {
+		body.Concurrency = 10
 	}
 	if body.Concurrency > body.Count {
 		body.Concurrency = body.Count
@@ -565,6 +565,8 @@ func (s *Server) handleGraphMail(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"count": len(statuses), "accounts": statuses})
 	case http.MethodPost:
+		s.graphImportMu.Lock()
+		defer s.graphImportMu.Unlock()
 		var body struct {
 			Content string `json:"content"`
 		}
@@ -600,12 +602,48 @@ func (s *Server) handleGraphMail(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusInternalServerError, "读取邮箱状态失败", "server_error")
 			return
 		}
-		count := len(statuses)
+		existing, err := os.ReadFile(path)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			writeErr(w, http.StatusInternalServerError, "读取已有邮箱失败", "server_error")
+			return
+		}
+		if len(existing) > 0 {
+			if _, err := register.NewProvider(&register.Config{GraphMailFile: path}, "graph", "", ""); err != nil {
+				writeErr(w, http.StatusInternalServerError, "已有邮箱文件格式错误", "server_error")
+				return
+			}
+		}
+		lines := make([]string, 0, len(statuses))
+		positions := map[string]int{}
+		appendLines := func(content string) {
+			for _, line := range strings.Split(content, "\n") {
+				line = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "\ufeff"))
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+				email, _, _ := strings.Cut(line, "----")
+				key := strings.ToLower(strings.TrimSpace(email))
+				if i, ok := positions[key]; ok {
+					lines[i] = line
+				} else {
+					positions[key] = len(lines)
+					lines = append(lines, line)
+				}
+			}
+		}
+		appendLines(string(existing))
+		before := len(lines)
+		appendLines(body.Content)
+		count := len(lines)
+		if err := os.WriteFile(f.Name(), []byte(strings.Join(lines, "\n")+"\n"), 0600); err != nil {
+			writeErr(w, http.StatusInternalServerError, "无法保存邮箱文件", "server_error")
+			return
+		}
 		if err := os.Rename(f.Name(), path); err != nil {
 			writeErr(w, http.StatusInternalServerError, "无法保存邮箱文件", "server_error")
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"count": count})
+		writeJSON(w, http.StatusOK, map[string]any{"count": count, "added": count - before, "updated": len(statuses) - (count - before)})
 	default:
 		writeErr(w, http.StatusMethodNotAllowed, "不支持的方法", "invalid_request_error")
 	}

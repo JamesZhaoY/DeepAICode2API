@@ -182,7 +182,7 @@ body.signed-out .login-screen{display:flex}
         <span id="modelsMeta" class="muted"></span>
       </div>
       <table><thead><tr>
-        <th>ID</th><th>名称</th><th>计费</th><th>Theos/次</th><th>上下文</th><th>最大输出</th><th>端点</th><th>输入</th>
+        <th>ID</th><th>名称</th><th>计费</th><th>Theos/次</th><th>上下文（tokens）</th><th>最大输出（tokens）</th><th>端点</th><th>输入</th>
       </tr></thead><tbody id="models"></tbody></table>
       <div class="hint">目录由上游 <code>/deepai_code/models</code> 下发；计费为 <code>free</code> 的模型每天有免费 Theos 额度。</div>
     </div>
@@ -250,12 +250,12 @@ body.signed-out .login-screen{display:flex}
         <div class="mail-tabs" role="group" aria-label="邮箱状态筛选"><button class="active" data-mail-filter="all">全部</button><button data-mail-filter="available">可用</button><button data-mail-filter="registered">已注册</button><button data-mail-filter="pending">待确认</button></div>
         <div class="table-wrap"><table><thead><tr><th>邮箱</th><th>状态</th></tr></thead><tbody id="graphAccounts"></tbody></table></div>
         <div class="mail-pager"><span id="mailPageInfo" class="muted">暂无邮箱</span><div><button class="btn" id="mailPrev">上一页</button> <button class="btn" id="mailNext">下一页</button></div></div>
-        <details id="importPanel" class="import-panel"><summary>导入 Hotmail / Outlook 邮箱</summary><div class="row"><input type="file" id="graphMailFile" accept=".txt,text/plain"><button class="btn" id="graphMailImport">导入并替换邮箱列表</button></div><p id="graphMailStatus" class="muted">尚未导入</p><div class="hint">每行：邮箱----密码----client_id----refresh_token。重新导入会替换邮箱列表，已记录的状态会保留。</div></details>
+        <details id="importPanel" class="import-panel"><summary>导入 Hotmail / Outlook 邮箱</summary><div class="row"><input type="file" id="graphMailFile" accept=".txt,text/plain"><button class="btn" id="graphMailImport">导入并合并邮箱列表</button></div><p id="graphMailStatus" class="muted">尚未导入</p><div class="hint">每行：邮箱----密码----client_id----refresh_token。重复邮箱更新为本次导入的凭据，其他邮箱与已记录状态保留。</div></details>
       </div>
       <div class="register-side">
         <div class="card task-card" id="registerForm"><h2>新建注册任务</h2><p class="card-subtitle">只会使用可用邮箱</p>
           <label>邮箱类型</label><div class="mail-provider">Hotmail / Microsoft Graph</div>
-          <div class="grid2"><div><label for="regCount">注册数量（1–50）</label><input id="regCount" type="number" min="1" max="50" value="1"></div><div><label for="regConcurrency">并发数（1–5）</label><input id="regConcurrency" type="number" min="1" max="5" value="1"></div></div>
+          <div class="grid2"><div><label for="regCount">注册数量（1–1000）</label><input id="regCount" type="number" min="1" max="1000" value="1"></div><div><label for="regConcurrency">并发数（1–10）</label><input id="regConcurrency" type="number" min="1" max="10" value="1"></div></div>
           <details class="advanced"><summary>高级设置</summary><label for="regProxyPool">代理池（每行一个；留空使用服务端配置）</label><textarea id="regProxyPool" placeholder="http://user:pass@host:port"></textarea></details>
           <button class="btn primary full" id="startRegister">开始注册</button>
         </div>
@@ -289,7 +289,7 @@ body.signed-out .login-screen{display:flex}
         <button class="btn danger" id="clearLogs">清空</button>
       </div>
       <table><thead><tr>
-        <th>时间</th><th>端点</th><th>模型</th><th>流式</th><th>状态</th><th>耗时</th><th>字符</th><th>Token</th><th>成本</th><th>账号</th><th>错误</th>
+        <th>时间</th><th>端点</th><th>模型</th><th>流式</th><th>状态</th><th>耗时</th><th>字符</th><th>Token</th><th>成本</th><th>调用账号邮箱</th><th>错误</th>
       </tr></thead><tbody id="logs"></tbody></table>
       <div class="hint">只记录元信息（模型、耗时、长度、用量），不落对话内容。</div>
     </div>
@@ -410,6 +410,16 @@ body.signed-out .login-screen{display:flex}
     if (n === undefined || n === null) return "0";
     return Number(n).toLocaleString("en-US");
   }
+  // K/M 使用十进制单位；完整数字保留在单元格提示中。
+  function tokenCell(value){
+    var n = Number(value);
+    if (value === undefined || value === null || String(value).trim() === "" || !Number.isFinite(n) || n < 0) return cell("—", "mono");
+    var formatted = n >= 1000000 ? Number((n / 1000000).toPrecision(4)) + "M" : n >= 1000 ? Number((n / 1000).toPrecision(4)) + "K" : fmtNum(n);
+    var c = cell(formatted, "mono");
+    c.title = fmtNum(n) + " tokens";
+    c.setAttribute("aria-label", fmtNum(n) + " tokens");
+    return c;
+  }
   function fmtCost(n){
     if (!n) return "$0";
     return "$" + Number(n).toFixed(6);
@@ -480,8 +490,8 @@ body.signed-out .login-screen{display:flex}
         cell(m.name || m.id),
         cell(free ? "free" : "premier", free ? "muted" : ""),
         cell(price, "mono"),
-        cell(fmtNum(m.contextWindow), "mono"),
-        cell(fmtNum(m.maxTokens), "mono"),
+        tokenCell(m.contextWindow),
+        tokenCell(m.maxTokens),
         cell(m.api || "chat", "mono muted"),
         cell(input, "muted")
       ]));
@@ -608,19 +618,23 @@ body.signed-out .login-screen{display:flex}
     var tb = $("#logs");
     tb.textContent = "";
     if (!logs || !logs.length) { tb.appendChild(emptyRow(11, "暂无日志")); return; }
+    var accountByID = new Map((state.data && state.data.accounts || []).map(function(a){return [a.id, a];}));
     for (var li = logs.length - 1; li >= 0; li--) {
       var l = logs[li];
       var st = cell("");
       st.appendChild(pill(l.status, l.status >= 400 ? "err" : "ok"));
       var errCell = cell(l.err || "", "muted trunc");
       if (l.err) errCell.title = l.err;
+      var account = accountByID.get(l.account);
+      var accountCell = cell(account && account.email ? account.email : (l.account || "—"), "mono");
+      if (account && account.email && l.account) accountCell.title = "账号 ID：" + l.account;
       tb.appendChild(row([
         cell(fmtTime(l.time), "muted"), cell(l.endpoint || "-", "mono muted"), cell(l.model, "mono"),
         cell(l.stream ? "是" : "否", "mono"), st, cell(l.latency_ms + "ms", "mono"),
         cell(l.prompt_len + " / " + l.output_len, "mono"),
         cell(fmtNum(l.tokens_in) + " / " + fmtNum(l.tokens_out), "mono"),
         cell(fmtCost(l.cost), "mono"),
-        cell(l.account, "mono"), errCell
+        accountCell, errCell
       ]));
     }
   }
@@ -906,7 +920,7 @@ body.signed-out .login-screen{display:flex}
       $("#graphMailFile").value = "";
       $("#graphMailStatus").textContent = "已导入 " + result.count + " 个邮箱";
       loadGraphMail();
-      toast("邮箱导入成功", "ok");
+      toast("邮箱导入成功：新增 " + result.added + " 个，更新 " + result.updated + " 个", "ok");
     } catch(e) { toast("邮箱导入失败：" + e.message, "err"); }
   };
 
