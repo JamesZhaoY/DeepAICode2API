@@ -407,19 +407,24 @@ func (s *Server) enrollRecord(rec *register.Record) (string, error) {
 		return "", errors.New("空记录")
 	}
 	reg := deepai.Registration{
-		Email:         rec.Email,
-		Password:      rec.Password,
-		Username:      rec.Username,
-		APIKey:        rec.APIKey,
-		SessionID:     rec.SessionID,
-		CSRFToken:     rec.CSRFToken,
-		UserPK:        rec.UserPK,
-		Plan:          rec.Plan,
-		EmailVerified: rec.EmailVerified,
-		Group:         rec.Group,
-		Proxy:         rec.Proxy,
-		Fingerprint:   rec.Fingerprint,
-		Source:        "register",
+		Email:          rec.Email,
+		Password:       rec.Password,
+		Username:       rec.Username,
+		APIKey:         rec.APIKey,
+		SessionID:      rec.SessionID,
+		CSRFToken:      rec.CSRFToken,
+		UserPK:         rec.UserPK,
+		Plan:           rec.Plan,
+		EmailVerified:  rec.EmailVerified,
+		Group:          rec.Group,
+		Proxy:          rec.Proxy,
+		Fingerprint:    rec.Fingerprint,
+		MachineID:      rec.MachineID,
+		UserAgent:      rec.UserAgent,
+		AcceptLanguage: rec.AcceptLanguage,
+		SecCHUA:        rec.SecCHUA,
+		Platform:       rec.Platform,
+		Source:         "register",
 	}
 	id, _, err := s.enrollRegistration(reg, &deepai.Allowance{
 		Enabled:   true,
@@ -634,4 +639,26 @@ func (s *Server) mergeGraphHistory(provider register.Provider) error {
 		}
 	}
 	return merger.MergeHistory(history)
+}
+
+// RestoreLedgerIdentities restores missing identities from matching registration records.
+func (s *Server) RestoreLedgerIdentities() (int, error) {
+	ledger := register.NewLedger(filepath.Join(filepath.Dir(s.Store.Path()), "exports", "register-ledger.jsonl"))
+	records, err := ledger.Load()
+	if err != nil {
+		return 0, err
+	}
+	identities := make([]*deepai.Account, 0, len(records))
+	for _, r := range records {
+		if r != nil {
+			identities = append(identities, &deepai.Account{Email: r.Email, APIKey: r.APIKey, MachineID: r.MachineID, UserAgent: r.UserAgent, AcceptLanguage: r.AcceptLanguage, SecCHUA: r.SecCHUA, Platform: r.Platform})
+		}
+	}
+	n := s.Store.RestoreRegistrationIdentity(identities)
+	if n > 0 {
+		if err := s.Store.Save(); err != nil {
+			return n, err
+		}
+	}
+	return n, nil
 }

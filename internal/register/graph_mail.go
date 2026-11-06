@@ -187,12 +187,12 @@ func (p *graphProvider) Reserve(email string) (Mailbox, error) {
 		if a == nil {
 			return nil, errors.New("指定邮箱不在 Graph 邮箱文件中")
 		}
-		if state[strings.ToLower(a.email)] != "" {
+		if status := state[strings.ToLower(a.email)]; status != "" && status != "available" {
 			return nil, errors.New("该邮箱已使用或注册状态待确认，不能再次注册")
 		}
 	} else {
 		for _, candidate := range p.accounts {
-			if state[strings.ToLower(candidate.email)] == "" {
+			if status := state[strings.ToLower(candidate.email)]; status == "" || status == "available" {
 				a = candidate
 				break
 			}

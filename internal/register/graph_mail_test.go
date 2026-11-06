@@ -100,3 +100,27 @@ func TestGraphReservationsPersistAcrossProviders(t *testing.T) {
 		t.Fatalf("registered state: %v %v", statuses, err)
 	}
 }
+
+func TestExplicitAvailableSurvivesHistoryAndCanBeReserved(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mail.txt")
+	if err := os.WriteFile(path, []byte("a@example.com----pw----client----token\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path+".state.json", []byte(`{"a@example.com":"available"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	p, err := newGraphProvider(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.MergeHistory(map[string]string{"a@example.com": "pending"}); err != nil {
+		t.Fatal(err)
+	}
+	statuses, err := p.Statuses()
+	if err != nil || statuses[0].Status != "available" {
+		t.Fatalf("state: %v %v", statuses, err)
+	}
+	if _, err = p.Create(context.Background()); err != nil {
+		t.Fatalf("reserve available account: %v", err)
+	}
+}

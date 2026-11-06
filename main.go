@@ -118,6 +118,11 @@ func main() {
 	}
 
 	srv := server.New(st)
+	if n, err := srv.RestoreLedgerIdentities(); err != nil {
+		log.Printf("恢复注册账号标识失败: %v", err)
+	} else if n > 0 {
+		log.Printf("已从注册台账恢复 %d 个账号的标识", n)
+	}
 
 	// 启动时同步拉一次模型目录；失败不阻塞启动（会沿用缓存 / 兜底模型）。
 	if models, err := srv.RefreshModels(context.Background()); err != nil {

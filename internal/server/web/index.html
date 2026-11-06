@@ -101,6 +101,7 @@
   details summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:13px}
   #regLogs{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;color:var(--fg);font-size:12px;line-height:1.7}
   @media(max-width:700px){main{padding:16px 12px}header{padding:12px}header .sp{display:none}.grid2{grid-template-columns:1fr}.card{padding:15px}nav{overflow-x:auto;flex-wrap:nowrap}nav button{white-space:nowrap}table{display:block;overflow-x:auto}header input{flex:1}}
+ .account-filters{margin:18px 0;padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:10px}.account-filters input{flex:1;min-width:180px}.account-filters select{max-width:180px}
 /* Layout derived from the Figma console design. */
 :root,:root[data-theme="light"]{--bg:#f5f7fb;--panel:#fff;--panel2:#f5f7fb;--line:#e4eaf2;--fg:#18233a;--dim:#728099;--accent:#305deb;--ok:#087f5b;--warn:#a76106;--err:#b53e48;--ok-line:#c8ead9;--warn-line:#f1dfb8;--err-line:#f0c9cc;--hover-line:#bdc9dd;--pill-bg:#edf2ff;--shadow:0 8px 30px rgba(20,35,65,.12)}
 :root[data-theme="dark"]{--bg:#101827;--panel:#182338;--panel2:#202d43;--line:#30405a;--fg:#edf2fa;--dim:#a9b6c9;--accent:#7595ff;--ok:#7de0b1;--warn:#f3c779;--err:#ff9da1;--ok-line:#325f50;--warn-line:#705b37;--err-line:#713e48;--hover-line:#566c8a;--pill-bg:#253655;--shadow:0 8px 30px rgba(0,0,0,.35)}
@@ -199,6 +200,14 @@ body.signed-out .login-screen{display:flex}
         <input id="manualName" placeholder="账号名称（可选）" style="width:170px">
         <input id="manualKey" placeholder="API Key（DeepAI 账号密钥）" style="width:330px">
         <button class="btn" id="addManual">添加 API Key</button>
+      </div>
+      <div class="row account-filters" aria-label="账号筛选">
+        <input id="acctSearch" type="search" placeholder="搜索邮箱或账号" aria-label="搜索邮箱或账号">
+        <select id="acctStatusFilter" aria-label="账号状态"><option value="">全部状态</option><option value="ok">正常</option><option value="error">异常</option><option value="unknown">未探测</option><option value="disabled">已停用</option></select>
+        <select id="acctBalanceFilter" aria-label="余额"><option value="">全部余额</option><option value="positive">有余额</option><option value="zero">余额为零或负</option><option value="unknown">余额未知</option></select>
+        <select id="acctVerifyFilter" aria-label="邮箱验证"><option value="">全部验证状态</option><option value="verified">已验证</option><option value="unverified">未验证</option></select>
+        <select id="acctGroupFilter" aria-label="账号分组"><option value="">全部分组</option></select>
+        <button class="btn" id="acctFilterReset">清除筛选</button>
       </div>
       <table><thead><tr>
         <th>账号</th><th>分组</th><th>来源</th><th>Key</th><th>套餐 / 验证</th><th>Theos</th><th>状态</th><th>失败</th><th>最近使用</th><th>操作</th>
@@ -482,9 +491,21 @@ body.signed-out .login-screen{display:flex}
   function renderAccounts(d){
     var tb = $("#accounts");
     tb.textContent = "";
-    var all = d.accounts || [];
+    var accounts = d.accounts || [], groupSelect = $("#acctGroupFilter"), selectedGroup = groupSelect.value;
+    var groups = Array.from(new Set(accounts.map(function(a){return a.group || "default";}))).sort();
+    groupSelect.textContent = ""; groupSelect.appendChild(new Option("全部分组", ""));
+    groups.forEach(function(g){groupSelect.appendChild(new Option(g, g));});
+    if (groups.includes(selectedGroup)) groupSelect.value = selectedGroup;
+    var query = $("#acctSearch").value.trim().toLowerCase(), status = $("#acctStatusFilter").value, balance = $("#acctBalanceFilter").value, verified = $("#acctVerifyFilter").value, group = groupSelect.value;
+    var all = accounts.filter(function(a){
+      var q = [a.email, a.name, a.username].some(function(x){return String(x || "").toLowerCase().includes(query);});
+      var st = !status || (status === "disabled" ? !a.enabled : a.enabled && (a.status || "unknown") === status);
+      var raw = a.theos && a.theos.balance, number = raw === null || raw === undefined || String(raw).trim() === "" ? NaN : Number(raw);
+      var bal = !balance || (balance === "unknown" ? !Number.isFinite(number) : balance === "positive" ? Number.isFinite(number) && number > 0 : Number.isFinite(number) && number <= 0);
+      return q && st && bal && (!verified || (verified === "verified" ? !!a.email_verified : !a.email_verified)) && (!group || (a.group || "default") === group);
+    });
     if (!all.length) {
-      tb.appendChild(emptyRow(10, "暂无账号，点击「导入本机桌面端」或「浏览器登录」"));
+      tb.appendChild(emptyRow(10, accounts.length ? "没有符合筛选条件的账号" : "暂无账号，点击「导入本机桌面端」或「浏览器登录」"));
       updateAcctPager(0, 0);
       return;
     }
@@ -1002,7 +1023,11 @@ body.signed-out .login-screen{display:flex}
     try { localStorage.setItem("deepaicode2api_theme", next); } catch(e){}
   };
 
-  // --- 账号分页控件 ---
+  // --- 账号筛选与分页控件 ---
+  ["acctSearch", "acctStatusFilter", "acctBalanceFilter", "acctVerifyFilter", "acctGroupFilter"].forEach(function(id){
+    $("#" + id).addEventListener(id === "acctSearch" ? "input" : "change", function(){acctPage = 0; renderAccounts(state.data || {});});
+  });
+  $("#acctFilterReset").onclick = function(){["acctSearch", "acctStatusFilter", "acctBalanceFilter", "acctVerifyFilter", "acctGroupFilter"].forEach(function(id){$("#" + id).value = "";}); acctPage=0; renderAccounts(state.data || {});};
   $("#acctSize").value = String(acctPageSize);
   $("#acctPrev").onclick = function(){ if (acctPage > 0) { acctPage--; renderAccounts(state.data || {}); } };
   $("#acctNext").onclick = function(){ acctPage++; renderAccounts(state.data || {}); };

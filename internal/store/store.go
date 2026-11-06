@@ -342,6 +342,43 @@ func sameEmail(a, b string) bool {
 	return a != "" && b != "" && strings.EqualFold(a, b)
 }
 
+// RestoreRegistrationIdentity fills missing account identity only when email and API key match.
+func (s *Store) RestoreRegistrationIdentity(records []*deepai.Account) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	byEmail := make(map[string]*deepai.Account, len(records))
+	for _, r := range records {
+		if r != nil && r.Email != "" && r.APIKey != "" && r.MachineID != "" {
+			byEmail[strings.ToLower(strings.TrimSpace(r.Email))] = r
+		}
+	}
+	count := 0
+	for _, a := range s.st.Accounts {
+		if a == nil || a.MachineID != "" {
+			continue
+		}
+		r := byEmail[strings.ToLower(strings.TrimSpace(a.Email))]
+		if r == nil || r.APIKey != a.APIKey {
+			continue
+		}
+		a.MachineID = r.MachineID
+		if a.UserAgent == "" {
+			a.UserAgent = r.UserAgent
+		}
+		if a.AcceptLanguage == "" {
+			a.AcceptLanguage = r.AcceptLanguage
+		}
+		if a.SecCHUA == "" {
+			a.SecCHUA = r.SecCHUA
+		}
+		if a.Platform == "" {
+			a.Platform = r.Platform
+		}
+		count++
+	}
+	return count
+}
+
 // RemoveAccount 删除账号。
 func (s *Store) RemoveAccount(id string) bool {
 	s.mu.Lock()
