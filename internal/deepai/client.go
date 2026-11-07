@@ -225,9 +225,13 @@ func (c *Client) SignInURL(state string, port int) string {
 	return u + "?" + q.Encode()
 }
 
+// upstreamInstance is stable for this gateway process, as required by lane 4.
+var upstreamInstance = RandomHex(16)
+
 // commonHeaders 写入所有上游请求的公共头。
 func (c *Client) commonHeaders(req *http.Request, acct *Account) {
 	req.Header.Set("X-DeepAI-Code-Theos", LaneVersion)
+	req.Header.Set("X-DeepAI-Code-Instance", upstreamInstance)
 	// 机器指纹优先取账号级：上游按它发放每日免费额度，共用会互相抵消。
 	machine := c.Machine
 	if acct != nil && acct.MachineID != "" {

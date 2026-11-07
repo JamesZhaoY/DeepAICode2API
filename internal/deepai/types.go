@@ -20,7 +20,7 @@ import "strings"
 // 上游协议常量。
 const (
 	// LaneVersion 是本网关对齐的 Theos 计费车道版本。
-	LaneVersion = "2"
+	LaneVersion = "4"
 
 	// 请求头名称。
 	HeaderKeyName  = "Api-Key"             // 上游统一使用 Api-Key（大小写不敏感）

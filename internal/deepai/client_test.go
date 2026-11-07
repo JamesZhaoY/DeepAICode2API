@@ -185,6 +185,12 @@ func TestClientSendsRequiredHeaders(t *testing.T) {
 	if v := got.Get(HeaderLane); v != LaneVersion {
 		t.Fatalf("%s = %q，期望 %q", HeaderLane, v, LaneVersion)
 	}
+	if LaneVersion != "4" {
+		t.Fatalf("unexpected lane version %q", LaneVersion)
+	}
+	if v := got.Get("X-DeepAI-Code-Instance"); len(v) != 32 || v != upstreamInstance {
+		t.Fatalf("invalid instance header %q", v)
+	}
 	if v := got.Get(HeaderMachine); v != "machine-fingerprint" {
 		t.Fatalf("%s = %q", HeaderMachine, v)
 	}

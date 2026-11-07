@@ -81,7 +81,37 @@ func (s *Server) resolveModel(name string) deepai.Model {
 //   - 400/404/422 等请求错误：不重试，直接返回 *deepai.HTTPError；
 //   - 401/403/429/5xx：记录账号失败并换号重试；
 //   - 409 session_busy：按 Retry-After 等待后重试。
+//
+// ensureChatInstruction supplies a neutral system message when the caller did not
+// provide one, matching the current upstream chat protocol's required shape.
+func ensureChatInstruction(body []byte) ([]byte, error) {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, err
+	}
+	messages, ok := payload["messages"].([]any)
+	if !ok || len(messages) == 0 {
+		return body, nil
+	}
+	for _, m := range messages {
+		if message, ok := m.(map[string]any); ok {
+			if role, _ := message["role"].(string); role == "system" || role == "developer" {
+				return body, nil
+			}
+		}
+	}
+	payload["messages"] = append([]any{map[string]any{"role": "system", "content": "You are a helpful assistant."}}, messages...)
+	return json.Marshal(payload)
+}
+
 func (s *Server) openModel(ctx context.Context, path string, body []byte, affinity, group string) (*http.Response, *deepai.Account, error) {
+	if path == deepai.PathChat {
+		var err error
+		body, err = ensureChatInstruction(body)
+		if err != nil {
+			return nil, nil, fmt.Errorf("准备上游请求失败: %w", err)
+		}
+	}
 	accts := s.Store.Accounts()
 	if len(accts) == 0 {
 		return nil, nil, errors.New("没有可用账号，请先在控制台导入桌面端凭据或添加 API Key")
